@@ -1,0 +1,7 @@
+# Render.com: one-click deploy from GitHub. Connect the repo and Render uses this.
+services:
+  - type: web
+    name: envelope
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py

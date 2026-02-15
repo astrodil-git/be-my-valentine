@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Envelope – Open Me, My Valentine</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@400;500&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #EDE4D9;
+      --letter-paper: #F1E4D6;
+      --envelope: #9A7A6A;
+      --lining: #E7B8C4;
+      --text: #4A342C;
+      --shadow: rgba(74, 52, 44, 0.15);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: 'Cormorant Garamond', serif;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+    }
+    /* Static pink square behind everything: same pink (--lining), perfect square, extends from top. Never in front. */
+    body::before {
+      content: '';
+      position: fixed;
+      z-index: -1;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100vmin;
+      height: 100vmin;
+      background: var(--lining);
+    }
+    /* All main content sits on top of the pink square */
+    body > * {
+      position: relative;
+      z-index: 1;
+    }
+    /* Stage: center envelope on screen, responsive */
+    .stage {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      min-height: 50vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 2000px;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    .reset-heart {
+      position: absolute;
+      bottom: -72px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: auto;
+      min-width: 100px;
+      height: auto;
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text);
+      transition: transform 0.2s ease, color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      z-index: 10;
+    }
+    .reset-heart:hover {
+      transform: translateX(-50%) scale(1.08);
+      color: #8B3A4A;
+    }
+    .reset-heart svg {
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+      display: block;
+    }
+    /* Envelope */
+    .envelope-wrap {
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .envelope-wrap.open { transform: scale(0.9); }
+    .envelope {
+      position: relative;
+      width: min(720px, 95vw);
+      height: min(540px, 80vh);
+    }
+    /* Custom envelope images (transparent): closed and open */
+    .envelope-image {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-image: url("{{ url_for('static', filename='1 - Edited.png') }}");
+      transition: opacity 0.45s ease;
+      pointer-events: none;
+    }
+    .envelope-wrap.open .envelope-image {
+      background-image: url("{{ url_for('static', filename='2 - Edited.png') }}");
+    }
+    /* Hide original CSS envelope when using custom images */
+    .envelope-back,
+    .flap,
+    .flap-lining,
+    .pocket-lining {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .envelope-back {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: var(--envelope);
+      border-radius: 6px;
+      box-shadow: 0 20px 40px var(--shadow);
+    }
+    .flap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 62%;
+      z-index: 5;
+      background: var(--envelope);
+      border-radius: 6px 6px 0 0;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      transform-origin: top center;
+      transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px var(--shadow);
+    }
+    .envelope-wrap.open .flap {
+      transform: rotateX(-115deg);
+      z-index: 2;
+    }
+    .flap-lining {
+      position: absolute;
+      inset: 0;
+      background: var(--lining);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .envelope-wrap.open .flap-lining { opacity: 1; }
+    .envelope-wrap.open .pocket-lining {
+      opacity: 1;
+    }
+    /* Hearts and sparkles: flow out of top of envelope when it opens; in front of everything */
+    .envelope-reveal {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 210;
+      opacity: 0;
+      visibility: hidden;
+      overflow: visible;
+    }
+    .envelope-wrap.open .envelope-reveal {
+      opacity: 1;
+      visibility: visible;
+    }
+    .envelope-wrap.open .envelope-reveal .heart,
+    .envelope-wrap.open .envelope-reveal .sparkle {
+      position: absolute;
+      left: 50%;
+      top: 42%;
+      animation: flow-out-random 6.2s ease-out forwards;
+      transform-origin: center center;
+    }
+    .envelope-reveal .heart {
+      width: 42px;
+      height: 42px;
+      margin-left: -21px;
+    }
+    .envelope-reveal .heart svg {
+      width: 100%;
+      height: 100%;
+    }
+    .envelope-reveal .sparkle {
+      font-size: 2.2rem;
+      margin-left: -1.1rem;
+      line-height: 1;
+    }
+    @keyframes flow-out-random {
+      0% { transform: translate(0, 0) scale(var(--size, 1)); opacity: 1; }
+      100% { transform: translate(var(--end-x, 0), var(--end-y, -150px)) scale(var(--size, 1)); opacity: 0; }
+    }
+    .pocket-lining {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 80px;
+      bottom: 12px;
+      background: var(--lining);
+      border-radius: 0 0 4px 4px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    /* When closed: hide pocket and contents so you only see the sealed envelope */
+    .pocket {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 0;
+      bottom: 20px;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 0;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0.25s, opacity 0.25s;
+    }
+    .envelope-wrap.open .pocket {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 4;
+    }
+    /* Open-state heart overlay: on top of everything; visible when envelope open until letter is clicked (then dismissed for good) */
+    .open-state-heart {
+      position: absolute;
+      top: var(--open-heart-top, 50%);
+      left: var(--open-heart-left, 50%);
+      width: var(--open-heart-size, 48px);
+      height: var(--open-heart-size, 48px);
+      transform: translate(-50%, -50%);
+      z-index: 200;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+    .envelope-wrap.open ~ .open-state-heart:not(.dismissed) {
+      opacity: 1;
+      visibility: visible;
+    }
+    .open-state-heart svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Open state: from envelope-config.js openState */
+    .envelope-wrap.open .pocket .contents {
+      position: absolute;
+      left: 50%;
+      width: var(--open-contents-width, 320px);
+      margin-left: calc(var(--open-contents-width, 320px) / -2);
+      bottom: var(--open-contents-bottom, 58%);
+      top: auto;
+      height: var(--open-contents-height, 85%);
+      overflow: visible;
+      transform-origin: 50% 100%;
+      transform: scale(var(--open-contents-scale, 0.5));
+    }
+    .pocket .contents {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      pointer-events: auto;
+    }
+    /* Items: only pieces visible (clipped by pocket); odd angles when in pocket */
+    .item {
+      position: absolute;
+      transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px var(--shadow);
+    }
+    .item:hover { filter: brightness(1.02); }
+    /* Rotate around bottom center so cut line stays on envelope opening. */
+    .pocket .item.letter,
+    .pocket .item.filmstrip,
+    .pocket .item.photo {
+      transform-origin: 50% 100%;
+    }
+    /* Middle: letter – bottom matches envelope opening: angle, horizontal, angle. */
+    .pocket .item.letter {
+      transform: rotate(var(--open-letter-rotate, -2deg));
+      z-index: 5;
+      bottom: var(--open-letter-bottom, 0);
+      top: var(--open-letter-top, auto);
+      left: 50%;
+      margin-left: -130px;
+      height: var(--open-letter-height, 340px);
+      /* Bottom edge: left diagonal, flat horizontal (wider), right diagonal (like envelope top) */
+      clip-path: polygon(0 0, 100% 0, 100% 82%, 78% 88%, 22% 88%, 0 82%);
+      -webkit-clip-path: polygon(0 0, 100% 0, 100% 82%, 78% 88%, 22% 88%, 0 82%);
+    }
+    /* Left: filmstrip (angle from config). */
+    .pocket .item.filmstrip {
+      transform: rotate(var(--open-filmstrip-rotate, -45deg));
+      z-index: 1;
+      bottom: var(--open-filmstrip-bottom, 0);
+      top: var(--open-filmstrip-top, auto);
+      left: 0;
+      margin-left: 0;
+      height: var(--open-filmstrip-height, 320px);
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 100%, 0 50%);
+      -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 100%, 0 50%);
+    }
+    /* Right: photo (angle from config). */
+    .pocket .item.photo {
+      position: absolute;
+      transform: rotate(var(--open-photo-rotate, 45deg));
+      z-index: 2;
+      left: auto;
+      right: 0;
+      bottom: var(--open-photo-bottom, 0);
+      top: var(--open-photo-top, auto);
+      height: var(--open-photo-height, 260px);
+      clip-path: polygon(0 0, 100% 0, 50% 100%, 0 100%, 0 50%);
+      -webkit-clip-path: polygon(0 0, 100% 0, 50% 100%, 0 100%, 0 50%);
+    }
+    .item.letter {
+      width: 260px;
+      height: 340px;
+      left: 4px;
+      right: auto;
+      top: 0;
+      margin-left: 0;
+      background: var(--letter-paper);
+      padding: 0;
+      overflow: hidden;
+    }
+    .item.letter .letter-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 4px;
+    }
+    .item.photo {
+      position: relative;
+      width: 180px;
+      height: 260px;
+      left: auto;
+      right: 4px;
+      top: 0;
+      margin-left: 0;
+      margin-right: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .item.photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 2px;
+    }
+    .item.photo .photo-cat-gif {
+      display: none;
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      border-radius: 50%;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+      pointer-events: none;
+    }
+    .item.photo .photo-cat-gif.cat-kiss {
+      bottom: 12px;
+      right: 12px;
+    }
+    .item.photo .photo-cat-gif.peach-cat {
+      top: 12px;
+      left: 12px;
+    }
+    .item.photo.slid-out .photo-cat-gif {
+      display: block;
+      width: 120px;
+      height: 120px;
+    }
+    .item.photo.slid-out .photo-cat-gif.cat-kiss {
+      bottom: 16px;
+      right: 16px;
+    }
+    .item.photo.slid-out .photo-cat-gif.peach-cat {
+      top: 16px;
+      left: 16px;
+    }
+    .item.filmstrip {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    /* In pocket: vertical strip on the left of the centered group */
+    .pocket .item.filmstrip {
+      left: 0;
+      margin-left: 0;
+      width: 150px;
+      height: 320px;
+      background: #1a1a1a;
+      padding: 0;
+    }
+    .pocket .item.filmstrip .filmstrip-perf {
+      flex: 0 0 10px;
+      width: 100%;
+      background: #1a1a1a;
+      background-image: repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 3px);
+    }
+    .pocket .item.filmstrip .filmstrip-frames {
+      flex-direction: column;
+      flex: 1;
+      padding: 4px;
+      gap: 4px;
+    }
+    .filmstrip-frames {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      width: 100%;
+      height: 100%;
+      gap: 4px;
+    }
+    .item.filmstrip .filmstrip-frames img {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      width: 100%;
+      object-fit: cover;
+      border-radius: 2px;
+    }
+    .pocket .item.filmstrip .filmstrip-frames img {
+      width: 100%;
+      height: auto;
+    }
+    /* When item is on stage (reparented), position relative to .stage */
+    .stage > .item {
+      position: absolute;
+      z-index: 100;
+      pointer-events: auto;
+      transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1), top 0.45s cubic-bezier(0.4, 0, 0.2, 1), right 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .item.slid-out {
+      z-index: 120;
+      pointer-events: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease, box-shadow 0.3s ease;
+    }
+    .item.slid-out.letter {
+      position: absolute;
+      width: 90vw;
+      max-width: 420px;
+      height: auto;
+      min-height: 50vh;
+      max-height: 85vh;
+      left: 50%;
+      top: 50%;
+      margin: 0;
+      transform: translate(-50%, -50%);
+      overflow: visible;
+      padding: 0;
+    }
+    .item.slid-out.letter .letter-img {
+      width: 100%;
+      height: auto;
+      max-height: 85vh;
+      object-fit: contain;
+      display: block;
+      border-radius: 4px;
+    }
+    .item.slid-out.photo {
+      position: absolute;
+      width: min(320px, 92vw);
+      height: min(480px, 85vh);
+      left: 50%;
+      top: 50%;
+      margin: 0;
+      transform: translate(-50%, -50%);
+      background: transparent;
+      box-shadow: none;
+    }
+    .item.slid-out.filmstrip {
+      width: min(400px, 92vw);
+      min-height: min(180px, 32vh);
+      left: 50%;
+      top: 50%;
+      margin: 0;
+      transform: translate(-50%, -50%);
+      flex-direction: column;
+      background: #1a1a1a;
+      padding: 0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+    .item.slid-out.filmstrip .filmstrip-perf {
+      flex: 0 0 auto;
+      height: 14px;
+      width: 100%;
+      background: #1a1a1a;
+      background-image: repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,0.08) 2px, rgba(255,255,255,0.08) 3px);
+    }
+    .item.slid-out.filmstrip .filmstrip-frames {
+      flex-direction: row;
+      flex: 1;
+      min-height: 0;
+      padding: 0 6px;
+      gap: 4px;
+    }
+    .item.slid-out.filmstrip .filmstrip-frames img {
+      height: 100%;
+      border: 2px solid #333;
+    }
+    /* Initial state for slide-out animation (removed after one frame) */
+    .item.slid-out.slid-out-from-envelope.letter {
+      transform: translate(-50%, -50%) scale(0.25);
+      opacity: 0.7;
+    }
+    .item.slid-out.slid-out-from-envelope.photo {
+      transform: translate(-50%, 10%) scale(0.3);
+      opacity: 0.7;
+    }
+    .item.slid-out.slid-out-from-envelope.filmstrip {
+      transform: translate(-50%, 10%) scale(0.3);
+      opacity: 0.7;
+    }
+    /* Docked items sit below opened content so they don’t cover it */
+    .stage > .item.docked {
+      z-index: 80;
+    }
+    /* Docked positions – from envelope-config.js dockedState */
+    .stage > .item.docked.letter {
+      left: var(--docked-letter-left, 2%);
+      top: var(--docked-letter-top, 28%);
+      margin-left: 0;
+      margin-top: var(--docked-letter-margin-top, -160px);
+      transform: translate(0, -50%) rotate(var(--docked-letter-rotate, -6deg));
+      width: var(--docked-letter-width, 220px);
+      height: var(--docked-letter-height, 300px);
+      font-size: 0.9rem;
+      padding: 14px;
+    }
+    .stage > .item.docked.photo {
+      right: var(--docked-photo-right, 2%);
+      left: auto;
+      top: var(--docked-photo-top, 55%);
+      margin-top: var(--docked-photo-margin-top, -120px);
+      margin-right: 0;
+      transform: translate(0, -50%) rotate(var(--docked-photo-rotate, 5deg));
+      width: var(--docked-photo-width, 200px);
+      height: var(--docked-photo-height, 300px);
+    }
+    .stage > .item.docked.filmstrip {
+      left: var(--docked-filmstrip-left, 2%);
+      top: var(--docked-filmstrip-top, 78%);
+      margin-left: 0;
+      margin-top: var(--docked-filmstrip-margin-top, -60px);
+      transform: translate(0, -50%) rotate(var(--docked-filmstrip-rotate, -4deg));
+      width: var(--docked-filmstrip-width, 300px);
+      height: var(--docked-filmstrip-height, 130px);
+      flex-direction: column;
+      background: #1a1a1a;
+      padding: 0;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+    }
+    .stage > .item.docked.filmstrip .filmstrip-perf {
+      flex: 0 0 12px;
+      width: 100%;
+      background: #1a1a1a;
+      background-image: repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,0.08) 2px, rgba(255,255,255,0.08) 3px);
+    }
+    .stage > .item.docked.filmstrip .filmstrip-frames {
+      flex-direction: row;
+      flex: 1;
+      min-height: 0;
+      padding: 0 6px;
+      gap: 4px;
+    }
+    .stage > .item.docked.filmstrip .filmstrip-frames img {
+      border: 2px solid #333;
+    }
+    /* Envelope closed: overlay text (on top of flap so it’s visible) */
+    .envelope-stamp {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 52px;
+      height: 38px;
+      padding: 4px 6px;
+      background: var(--letter-paper);
+      border: 2px dashed var(--lining);
+      border-radius: 0;
+      pointer-events: none;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.3s;
+    }
+    .envelope-wrap.open .envelope-stamp { opacity: 0; pointer-events: none; }
+    /* Hidden when using custom envelope (design has its own text) */
+    .envelope-stamp,
+    .envelope-front-label { opacity: 0; pointer-events: none; }
+    .envelope-stamp span {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-size: 0.7rem;
+      color: var(--text);
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      text-align: center;
+    }
+    .envelope-front-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      margin-top: 8px;
+      pointer-events: none;
+      z-index: 6;
+      transition: opacity 0.3s;
+    }
+    .envelope-wrap.open .envelope-front-label { opacity: 0; pointer-events: none; }
+    .envelope-front-label span {
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+      font-size: clamp(1.5rem, 4.5vw, 2rem);
+      color: var(--letter-paper);
+      text-shadow: 0 2px 6px rgba(74, 52, 44, 0.35);
+      white-space: nowrap;
+    }
+    /* Surprise text: appears between last dock and video – above intro overlay (300) so it shows */
+    .surprise-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 350;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(74, 52, 44, 0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+      pointer-events: none;
+    }
+    .surprise-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .surprise-overlay .surprise-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 28px 40px;
+      background: rgba(241, 228, 214, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(74, 52, 44, 0.25), 0 0 0 3px rgba(231, 184, 196, 0.6);
+    }
+    .surprise-overlay .surprise-text {
+      margin: 0;
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+      font-size: clamp(1.75rem, 5vw, 2.5rem);
+      color: var(--text);
+      text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+      letter-spacing: 0.02em;
+    }
+    .surprise-overlay .surprise-hearts {
+      display: flex;
+      gap: 8px;
+    }
+    .surprise-overlay .surprise-hearts svg {
+      width: 28px;
+      height: 28px;
+    }
+    /* Video replay boxes: appear at end, scattered with envelope content */
+    .video-replay-box {
+      position: absolute;
+      z-index: 110;
+      width: 100px;
+      padding: 14px;
+      background: rgba(241, 228, 214, 0.98);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(74, 52, 44, 0.2), 0 0 0 2px rgba(231, 184, 196, 0.5);
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+    .stage.show-replay-videos .video-replay-box {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .video-replay-box:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(74, 52, 44, 0.25);
+    }
+    /* Intro / Our video buttons – from envelope-config.js dockedState.replayIntro / replayEnd */
+    .video-replay-box.replay-intro {
+      left: var(--docked-replay-intro-left, 38%);
+      top: var(--docked-replay-intro-top, -4%);
+      transform: translate(-50%, -50%) rotate(var(--docked-replay-intro-rotate, 0deg));
+    }
+    .video-replay-box.replay-intro:hover {
+      transform: translate(-50%, -50%) rotate(var(--docked-replay-intro-rotate, 0deg)) scale(1.05);
+    }
+    .video-replay-box.replay-end {
+      right: var(--docked-replay-end-right, 18%);
+      left: auto;
+      top: var(--docked-replay-end-top, 78%);
+      transform: translateY(-50%) rotate(var(--docked-replay-end-rotate, 3deg));
+    }
+    .video-replay-box.replay-end:hover {
+      transform: translateY(-50%) rotate(var(--docked-replay-end-rotate, 3deg)) scale(1.05);
+    }
+    .video-replay-box .play-icon {
+      width: 36px;
+      height: 36px;
+      color: var(--lining);
+    }
+    /* Backdrop when item is out */
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(74, 52, 44, 0.2);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .backdrop.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* Video reveal: slides into frame when all items have been clicked */
+    .video-reveal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(74, 52, 44, 0.75);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    .video-reveal.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .video-reveal .video-inner {
+      position: relative;
+      max-width: 90vw;
+      max-height: 85vh;
+      width: 720px;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .video-reveal.visible .video-inner {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .video-reveal video {
+      display: block;
+      width: 100%;
+      max-height: 85vh;
+      border-radius: 8px;
+    }
+    .video-reveal .video-tap-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: rgba(0, 0, 0, 0.55);
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 8;
+      transition: opacity 0.2s;
+      font: inherit;
+      color: inherit;
+    }
+    .video-reveal .video-tap-overlay:hover {
+      background: rgba(0, 0, 0, 0.65);
+    }
+    .video-reveal .video-tap-overlay.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+    .video-reveal .video-tap-overlay span {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1.25rem;
+      color: #fff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .video-reveal .video-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.5rem;
+      line-height: 1;
+      color: var(--text);
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    .video-reveal .video-close:hover {
+      background: #fff;
+    }
+    /* Intro overlay: video2 plays first, click to dismiss and show envelope */
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(74, 52, 44, 0.9);
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    .intro-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .intro-overlay .video-inner {
+      position: relative;
+      max-width: 95vw;
+      max-height: 90vh;
+      width: 800px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .intro-overlay video {
+      display: block;
+      width: 100%;
+      max-height: 90vh;
+      border-radius: 8px;
+    }
+    .intro-overlay .video-tap-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 8;
+      font: inherit;
+      color: inherit;
+    }
+    .intro-overlay .video-tap-overlay:hover {
+      background: rgba(0, 0, 0, 0.6);
+    }
+    .intro-overlay .video-tap-overlay.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+    .intro-overlay .video-tap-overlay span {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1.25rem;
+      color: #fff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .intro-tap-continue {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1.75rem;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+      z-index: 310;
+      pointer-events: none;
+    }
+    .intro-tap-continue.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .intro-tap-continue .heart-icon {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    .stage.intro-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    /* Lips icon: on the letter 2s after letter is opened, hides when letter is closed */
+    .lips-corner {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 150;
+      width: 48px;
+      height: 48px;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    .item.letter .lips-corner {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      top: auto;
+      left: auto;
+    }
+    .lips-corner.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .lips-corner img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      animation: lips-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes lips-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+  </style>
+  <script src="{{ url_for('envelope_config') }}"></script>
+  <script>
+    (function() {
+      var c = window.ENVELOPE_CONFIG;
+      if (!c) return;
+      var r = document.documentElement.style;
+      var o = c.openState || {};
+      var oc = o.contents || {};
+      r.setProperty('--open-contents-bottom', (oc.bottom != null ? oc.bottom : 58) + '%');
+      r.setProperty('--open-contents-height', (oc.height != null ? oc.height : 85) + '%');
+      r.setProperty('--open-contents-width', (oc.width != null ? oc.width : 320) + 'px');
+      r.setProperty('--open-contents-scale', oc.scale != null ? oc.scale : 0.5);
+      function openItem(name, defaults) {
+        var item = o[name] || {};
+        var d = defaults || {};
+        function v(prop, unit) { var x = item[prop]; return (x != null ? x : d[prop]) + (unit || ''); }
+        function set(prefix) {
+          r.setProperty('--open-' + prefix + '-rotate', v('rotate', 'deg'));
+          if (item.top != null) {
+            r.setProperty('--open-' + prefix + '-top', item.top + '%');
+            r.setProperty('--open-' + prefix + '-bottom', 'auto');
+          } else {
+            r.setProperty('--open-' + prefix + '-top', 'auto');
+            r.setProperty('--open-' + prefix + '-bottom', (item.bottom != null ? item.bottom : d.bottom) + '%');
+          }
+          if (item.height != null) r.setProperty('--open-' + prefix + '-height', item.height + 'px');
+        }
+        return set;
+      }
+      openItem('letter', { rotate: -2, bottom: 0, height: 340 })('letter');
+      openItem('filmstrip', { rotate: -45, bottom: 0, height: 320 })('filmstrip');
+      openItem('photo', { rotate: 45, bottom: 0, height: 260 })('photo');
+      var h = o.heart || {};
+      r.setProperty('--open-heart-top', (h.top != null ? h.top : 50) + '%');
+      r.setProperty('--open-heart-left', (h.left != null ? h.left : 50) + '%');
+      r.setProperty('--open-heart-size', (h.size != null ? h.size : 48) + 'px');
+      var d = c.dockedState || {};
+      function dock(k, def) { var x = d[k] || {}; return function(prop, unit) { var v = x[prop]; return (v != null ? v : def[prop]) + (unit || ''); }; }
+      var letter = dock('letter', { left: 2, top: 28, marginTop: -160, rotate: -6, width: 220, height: 300 });
+      r.setProperty('--docked-letter-left', letter('left', '%'));
+      r.setProperty('--docked-letter-top', letter('top', '%'));
+      r.setProperty('--docked-letter-margin-top', letter('marginTop', 'px'));
+      r.setProperty('--docked-letter-rotate', letter('rotate', 'deg'));
+      r.setProperty('--docked-letter-width', letter('width', 'px'));
+      r.setProperty('--docked-letter-height', letter('height', 'px'));
+      var photo = dock('photo', { right: 2, top: 55, marginTop: -120, rotate: 5, width: 200, height: 300 });
+      r.setProperty('--docked-photo-right', photo('right', '%'));
+      r.setProperty('--docked-photo-top', photo('top', '%'));
+      r.setProperty('--docked-photo-margin-top', photo('marginTop', 'px'));
+      r.setProperty('--docked-photo-rotate', photo('rotate', 'deg'));
+      r.setProperty('--docked-photo-width', photo('width', 'px'));
+      r.setProperty('--docked-photo-height', photo('height', 'px'));
+      var filmstrip = dock('filmstrip', { left: 2, top: 78, marginTop: -60, rotate: -4, width: 300, height: 130 });
+      r.setProperty('--docked-filmstrip-left', filmstrip('left', '%'));
+      r.setProperty('--docked-filmstrip-top', filmstrip('top', '%'));
+      r.setProperty('--docked-filmstrip-margin-top', filmstrip('marginTop', 'px'));
+      r.setProperty('--docked-filmstrip-rotate', filmstrip('rotate', 'deg'));
+      r.setProperty('--docked-filmstrip-width', filmstrip('width', 'px'));
+      r.setProperty('--docked-filmstrip-height', filmstrip('height', 'px'));
+      var intro = d.replayIntro || {};
+      r.setProperty('--docked-replay-intro-left', (intro.left != null ? intro.left : 38) + '%');
+      r.setProperty('--docked-replay-intro-top', (intro.top != null ? intro.top : -4) + '%');
+      r.setProperty('--docked-replay-intro-rotate', (intro.rotate != null ? intro.rotate : 0) + 'deg');
+      var end = d.replayEnd || {};
+      r.setProperty('--docked-replay-end-right', (end.right != null ? end.right : 18) + '%');
+      r.setProperty('--docked-replay-end-top', (end.top != null ? end.top : 78) + '%');
+      r.setProperty('--docked-replay-end-rotate', (end.rotate != null ? end.rotate : 3) + 'deg');
+    })();
+  </script>
+</head>
+<body>
+  <div class="intro-overlay" id="introOverlay">
+    <div class="video-inner">
+      <button type="button" class="video-tap-overlay" id="introTapOverlay" aria-label="Play video"><span>Tap to play</span></button>
+      <div class="intro-tap-continue" id="introTapContinue" aria-hidden="true">
+        <span>Tap to continue</span>
+        <svg class="heart-icon" viewBox="0 0 24 24" fill="#E53935" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </div>
+      <video id="introVideo" playsinline controls preload="auto">
+        <source src="{{ url_for('serve_photo', filename='video2.mp4') }}" type="video/mp4" />
+      </video>
+    </div>
+  </div>
+
+  <div class="stage intro-hidden" id="stage">
+    <div class="backdrop" id="backdrop"></div>
+    <div class="envelope-wrap" id="envelopeWrap">
+      <div class="envelope">
+        <div class="envelope-image" aria-hidden="true"></div>
+        <div class="envelope-back"></div>
+        <div class="flap">
+          <div class="flap-lining"></div>
+        </div>
+        <div class="pocket-lining"></div>
+        <div class="envelope-reveal" aria-hidden="true">
+          <div class="heart heart-1"><svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="heart heart-2"><svg viewBox="0 0 24 24" fill="#C62828"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="heart heart-3"><svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="heart heart-4"><svg viewBox="0 0 24 24" fill="#C62828"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="heart heart-5"><svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="heart heart-6"><svg viewBox="0 0 24 24" fill="#C62828"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="heart heart-7"><svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <span class="sparkle sparkle-1">✨</span>
+          <span class="sparkle sparkle-2">✨</span>
+          <span class="sparkle sparkle-3">✨</span>
+          <span class="sparkle sparkle-4">✨</span>
+          <span class="sparkle sparkle-5">✨</span>
+          <span class="sparkle sparkle-6">✨</span>
+          <span class="sparkle sparkle-7">✨</span>
+          <span class="sparkle sparkle-8">⭐</span>
+          <span class="sparkle sparkle-9">✨</span>
+          <span class="sparkle sparkle-10">🌟</span>
+          <span class="sparkle sparkle-11">✨</span>
+          <span class="sparkle sparkle-12">⭐</span>
+        </div>
+        <div class="envelope-stamp"><span>Open me</span></div>
+        <div class="envelope-front-label"><span>For my valentine</span></div>
+        <div class="pocket">
+          <div class="contents" id="contents">
+            <div class="item letter" id="letter" data-item="letter">
+              <img class="letter-img" src="{{ url_for('serve_photo', filename='letter.png') }}" alt="Love letter" />
+            </div>
+            <div class="item filmstrip" id="filmstrip" data-item="filmstrip">
+              <div class="filmstrip-perf" aria-hidden="true"></div>
+              <div class="filmstrip-frames">
+                <img src="{{ url_for('serve_photo', filename='filmstrip1.jpg') }}" alt="Frame 1" onerror="this.src=dataUrlPlaceholders.strip" />
+                <img src="{{ url_for('serve_photo', filename='filmstrip2.jpg') }}" alt="Frame 2" onerror="this.src=dataUrlPlaceholders.strip" />
+                <img src="{{ url_for('serve_photo', filename='filmstrip3.jpg') }}" alt="Frame 3" onerror="this.src=dataUrlPlaceholders.strip" />
+              </div>
+              <div class="filmstrip-perf" aria-hidden="true"></div>
+            </div>
+            <div class="item photo" id="photo" data-item="photo">
+              <img id="mainPhotoImg" src="{{ url_for('serve_photo', filename='photo.jpg') }}" alt="Your photo" onerror="this.src=dataUrlPlaceholders.photo" />
+              <img class="photo-cat-gif cat-kiss" src="{{ url_for('serve_photo', filename='cat-kiss.gif') }}" alt="" aria-hidden="true" />
+              <img class="photo-cat-gif peach-cat" src="{{ url_for('serve_photo', filename='peach-cat.gif') }}" alt="" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="open-state-heart" id="openStateHeart" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </div>
+    <button type="button" class="reset-heart" id="resetHeart" aria-label="One more time">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+      <span>one more time</span>
+    </button>
+    <button type="button" class="video-replay-box replay-intro" id="replayIntro" data-video-src="{{ url_for('serve_photo', filename='video2.mp4') }}" aria-label="Replay intro video">
+      <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      <span>Intro</span>
+    </button>
+    <button type="button" class="video-replay-box replay-end" id="replayEnd" data-video-src="{{ url_for('serve_photo', filename='video3.mp4') }}" aria-label="Replay end video">
+      <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      <span>Our video</span>
+    </button>
+  </div>
+
+  <div class="lips-corner" id="lipsCorner" aria-hidden="true">
+    <img src="{{ url_for('static', filename='lips-icon.ico') }}" alt="" />
+  </div>
+
+  <div class="surprise-overlay" id="surpriseOverlay" aria-hidden="true">
+    <div class="surprise-inner">
+      <span class="surprise-hearts" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </span>
+      <p class="surprise-text">one more surprise...</p>
+      <span class="surprise-hearts" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <svg viewBox="0 0 24 24" fill="#E53935"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </span>
+    </div>
+  </div>
+
+  <div class="video-reveal" id="videoReveal">
+    <div class="video-inner">
+      <button type="button" class="video-close" id="videoClose" aria-label="Close video">×</button>
+      <button type="button" class="video-tap-overlay" id="videoTapOverlay" aria-label="Play video"><span>Tap to play</span></button>
+      <video id="revealVideo" playsinline controls preload="auto" data-default-src="{{ url_for('serve_photo', filename='video3.mp4') }}">
+        <source src="{{ url_for('serve_photo', filename='video3.mp4') }}" type="video/mp4" />
+        <source src="{{ url_for('serve_photo', filename='video3.mov') }}" type="video/quicktime" />
+        <source src="{{ url_for('serve_photo', filename='video3.webm') }}" type="video/webm" />
+      </video>
+    </div>
+  </div>
+
+  <script>
+    var dataUrlPlaceholders = {
+      photo: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='180'%3E%3Crect fill='%23E7B8C4' width='120' height='180'/%3E%3Ctext x='50%25' y='50%25' fill='%234A342C' text-anchor='middle' dy='.3em' font-size='14'%3EPhoto%3C/text%3E%3C/svg%3E",
+      strip: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='128'%3E%3Crect fill='%239A7A6A' width='88' height='128'/%3E%3Ctext x='50%25' y='50%25' fill='%23F1E4D6' text-anchor='middle' dy='.3em' font-size='12'%3EStrip%3C/text%3E%3C/svg%3E"
+    };
+    const stage = document.getElementById('stage');
+    const contents = document.getElementById('contents');
+    const envelopeWrap = document.getElementById('envelopeWrap');
+    const letterEl = document.getElementById('letter');
+    const photoEl = document.getElementById('photo');
+    const filmstripEl = document.getElementById('filmstrip');
+    const backdrop = document.getElementById('backdrop');
+    const resetHeart = document.getElementById('resetHeart');
+    const openStateHeart = document.getElementById('openStateHeart');
+
+    const ALL_ITEMS = ['letter', 'photo', 'filmstrip'];
+    const videoReveal = document.getElementById('videoReveal');
+    const revealVideo = document.getElementById('revealVideo');
+    const videoClose = document.getElementById('videoClose');
+    const videoTapOverlay = document.getElementById('videoTapOverlay');
+
+    const introOverlay = document.getElementById('introOverlay');
+    const introVideo = document.getElementById('introVideo');
+    const introTapOverlay = document.getElementById('introTapOverlay');
+    const introTapContinue = document.getElementById('introTapContinue');
+
+    function dismissIntro() {
+      introOverlay.classList.add('hidden');
+      stage.classList.remove('intro-hidden');
+      introVideo.pause();
+      introTapContinue.classList.remove('visible');
+    }
+
+    introVideo.addEventListener('timeupdate', function() {
+      var d = introVideo.duration;
+      if (d && d > 0 && introVideo.currentTime >= d - 1) {
+        introTapContinue.classList.add('visible');
+      } else if (d && d > 0 && introVideo.currentTime < d - 1.5) {
+        introTapContinue.classList.remove('visible');
+      }
+    });
+    introVideo.addEventListener('ended', function() {
+      introTapContinue.classList.add('visible');
+    });
+    introVideo.addEventListener('play', function() {
+      if (introVideo.currentTime < introVideo.duration - 1) {
+        introTapContinue.classList.remove('visible');
+      }
+    });
+
+    introTapOverlay.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation(); /* don't dismiss when tapping to play */
+      introTapOverlay.classList.add('hidden');
+      var p = introVideo.play();
+      if (p && typeof p.then === 'function') {
+        p.then(function() {}).catch(function() {
+          introTapOverlay.classList.remove('hidden');
+        });
+      }
+    });
+    introOverlay.addEventListener('click', function(e) {
+      if (e.target === introOverlay || e.target.closest('.video-inner') === null) {
+        dismissIntro();
+      }
+    });
+
+    videoTapOverlay.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      videoTapOverlay.classList.add('hidden');
+      revealVideo.load();
+      var p = revealVideo.play();
+      if (p && typeof p.then === 'function') {
+        p.then(function() {}).catch(function() {
+          videoTapOverlay.classList.remove('hidden');
+          videoTapOverlay.querySelector('span').textContent = 'Tap to play';
+        });
+      }
+    });
+    revealVideo.addEventListener('play', function() {
+      videoTapOverlay.classList.add('hidden');
+    });
+    revealVideo.addEventListener('pause', function() {
+      if (videoReveal.classList.contains('visible') && revealVideo.currentTime > 0 && !revealVideo.ended) {
+        videoTapOverlay.classList.remove('hidden');
+      }
+    });
+    revealVideo.addEventListener('ended', function() {
+      videoTapOverlay.classList.remove('hidden');
+      videoTapOverlay.querySelector('span').textContent = 'Tap to replay';
+    });
+    revealVideo.addEventListener('error', function() {
+      videoTapOverlay.classList.remove('hidden');
+      videoTapOverlay.querySelector('span').textContent = 'Video couldn\'t load. Open from a server (e.g. run ./run.sh).';
+    });
+
+    let open = false;
+    let activeItem = null;
+    const openedItems = new Set();
+    var surpriseShownThisSession = false;
+    let lipsTimeout = null;
+    const lipsCorner = document.getElementById('lipsCorner');
+
+    function hideLipsCorner() {
+      if (lipsTimeout) {
+        clearTimeout(lipsTimeout);
+        lipsTimeout = null;
+      }
+      lipsCorner.classList.remove('visible');
+      if (lipsCorner.parentNode !== document.body) {
+        document.body.appendChild(lipsCorner);
+      }
+    }
+
+    function moveToStage(el) {
+      if (el.parentNode === contents) stage.appendChild(el);
+    }
+    function moveToContents(el) {
+      if (el.parentNode === stage) contents.appendChild(el);
+    }
+
+    function reset() {
+      hideLipsCorner();
+      [letterEl, photoEl, filmstripEl].forEach(function(el) {
+        if (!el) return;
+        moveToContents(el);
+        el.classList.remove('slid-out', 'docked', 'slid-out-from-envelope');
+      });
+      openedItems.clear();
+      activeItem = null;
+      backdrop.classList.remove('visible');
+      surpriseShownThisSession = false;
+      document.getElementById('surpriseOverlay').classList.remove('visible');
+      videoReveal.classList.remove('visible');
+      revealVideo.pause();
+      if (revealVideo.dataset.defaultSrc) {
+        revealVideo.src = revealVideo.dataset.defaultSrc;
+      }
+      videoTapOverlay.classList.remove('hidden');
+      videoTapOverlay.querySelector('span').textContent = 'Tap to play';
+      stage.classList.remove('show-replay-videos');
+      envelopeWrap.classList.remove('open');
+      open = false;
+      if (openStateHeart) openStateHeart.classList.remove('dismissed');
+    }
+
+    resetHeart.addEventListener('click', function(e) {
+      e.stopPropagation();
+      reset();
+    });
+
+    var replayIntro = document.getElementById('replayIntro');
+    var replayEnd = document.getElementById('replayEnd');
+    function openReplayVideo(src) {
+      if (!src) return;
+      revealVideo.src = src;
+      revealVideo.load();
+      videoReveal.classList.add('visible');
+      videoTapOverlay.classList.remove('hidden');
+      videoTapOverlay.querySelector('span').textContent = 'Tap to play';
+    }
+    if (replayIntro) replayIntro.addEventListener('click', function(e) { e.stopPropagation(); openReplayVideo(replayIntro.getAttribute('data-video-src')); });
+    if (replayEnd) replayEnd.addEventListener('click', function(e) { e.stopPropagation(); openReplayVideo(replayEnd.getAttribute('data-video-src')); });
+
+    function randomizeHearts() {
+      const hearts = document.querySelectorAll('.envelope-reveal .heart, .envelope-reveal .sparkle');
+      hearts.forEach(function(el) {
+        var angle = (Math.random() - 0.5) * Math.PI * 0.9;
+        var dist = 280 + Math.random() * 220;
+        var endX = Math.sin(angle) * dist;
+        var endY = -Math.cos(angle) * dist;
+        var size = 0.8 + Math.random() * 1;
+        var startX = (Math.random() - 0.5) * 380;
+        var delay = Math.random() * 0.8;
+        var baseM = el.classList.contains('heart') ? -21 : -18;
+        el.style.setProperty('--end-x', endX + 'px');
+        el.style.setProperty('--end-y', endY + 'px');
+        el.style.setProperty('--size', size);
+        el.style.marginLeft = (baseM + startX) + 'px';
+        el.style.animationDelay = delay + 's';
+      });
+    }
+
+    envelopeWrap.addEventListener('click', function(e) {
+      if (open) return;
+      randomizeHearts();
+      open = true;
+      envelopeWrap.classList.add('open');
+    });
+
+    function slideOut(itemName) {
+      const el = document.getElementById(itemName);
+      if (!el) return;
+      hideLipsCorner();
+      moveToStage(el);
+      el.classList.remove('docked');
+      el.classList.add('slid-out', 'slid-out-from-envelope');
+      activeItem = itemName;
+      backdrop.classList.add('visible');
+      openedItems.add(itemName);
+      if (itemName === 'letter') {
+        lipsTimeout = setTimeout(function() {
+          lipsTimeout = null;
+          letterEl.appendChild(lipsCorner);
+          lipsCorner.classList.add('visible');
+        }, 2000);
+      }
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          el.classList.remove('slid-out-from-envelope');
+        });
+      });
+    }
+
+    function dock(itemName) {
+      const el = document.getElementById(itemName);
+      if (!el) return;
+      if (itemName === 'letter') hideLipsCorner();
+      el.classList.remove('slid-out');
+      el.classList.add('docked');
+      activeItem = null;
+      backdrop.classList.remove('visible');
+      if (ALL_ITEMS.every(function (id) { return openedItems.has(id); }) && !surpriseShownThisSession) {
+        surpriseShownThisSession = true;
+        var surpriseOverlay = document.getElementById('surpriseOverlay');
+        var surpriseDone = false;
+        function proceedToVideo() {
+          if (surpriseDone) return;
+          if (!surpriseOverlay || !surpriseOverlay.classList.contains('visible')) return;
+          surpriseDone = true;
+          document.removeEventListener('click', onSurpriseClick);
+          surpriseOverlay.style.pointerEvents = 'none';
+          surpriseOverlay.classList.remove('visible');
+          stage.classList.add('show-replay-videos');
+          if (revealVideo.dataset.defaultSrc) revealVideo.src = revealVideo.dataset.defaultSrc;
+          revealVideo.load();
+          videoReveal.classList.add('visible');
+          videoTapOverlay.classList.add('hidden');
+          videoTapOverlay.querySelector('span').textContent = 'Tap to play';
+          var p = revealVideo.play();
+          if (p && typeof p.then === 'function') {
+            p.then(function() {}).catch(function() {
+              videoTapOverlay.classList.remove('hidden');
+              videoTapOverlay.querySelector('span').textContent = 'Tap to play';
+            });
+          }
+        }
+        function onSurpriseClick(e) {
+          if (surpriseDone) return;
+          if (!surpriseOverlay.classList.contains('visible')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          proceedToVideo();
+        }
+        requestAnimationFrame(function() {
+          surpriseOverlay.classList.add('visible');
+          document.addEventListener('click', onSurpriseClick);
+        });
+      }
+    }
+
+    function putBack(itemName) {
+      const el = document.getElementById(itemName);
+      if (!el) return;
+      if (itemName === 'letter') hideLipsCorner();
+      moveToContents(el);
+      el.classList.remove('slid-out', 'docked');
+      activeItem = null;
+      backdrop.classList.remove('visible');
+    }
+
+    [letterEl, photoEl, filmstripEl].forEach(function(el) {
+      if (!el) return;
+      const itemName = el.dataset.item;
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!open) return;
+        if (el.classList.contains('slid-out')) {
+          dock(itemName);
+          return;
+        }
+        if (el.classList.contains('docked')) {
+          slideOut(itemName);
+          return;
+        }
+        if (itemName === 'letter' && openStateHeart) openStateHeart.classList.add('dismissed');
+        slideOut(itemName);
+      });
+    });
+
+    backdrop.addEventListener('click', function() {
+      if (activeItem) dock(activeItem);
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      if (videoReveal.classList.contains('visible')) {
+        videoReveal.classList.remove('visible');
+        revealVideo.pause();
+      } else if (activeItem) {
+        dock(activeItem);
+      }
+    });
+
+    videoClose.addEventListener('click', function() {
+      videoReveal.classList.remove('visible');
+      revealVideo.pause();
+    });
+    videoReveal.addEventListener('click', function(e) {
+      if (e.target === videoReveal) {
+        videoReveal.classList.remove('visible');
+        revealVideo.pause();
+      }
+    });
+  </script>
+</body>
+</html>
